@@ -106,7 +106,7 @@ export default function ParentChat() {
       body: JSON.stringify({
         id: questionId,
         feedback: value,
-        ...(value === "down" ? { outcome: "thumbs_down", resolved: false } : {}),
+        ...(value === "down" ? { resolved: false } : {}),
       }),
     });
     setMessages((msgs) =>

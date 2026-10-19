@@ -7,27 +7,33 @@ import {
 } from "./store";
 import type { AskResult, HandbookEntry, QuestionLog } from "./types";
 
-function detectSensitive(
-  question: string,
-  topics: string[]
-): string | null {
-  const lower = question.toLowerCase();
-  for (const topic of topics) {
-    if (lower.includes(topic.toLowerCase())) {
-      return topic;
-    }
-  }
-  // Extra keyword heuristics for common sensitive cases
-  const heuristics: [RegExp, string][] = [
-    [/\b(hurt|injured|injury|broke|bleeding|fell hard)\b/i, "injury"],
-    [/\b(custody|restraining|court order)\b/i, "custody"],
-    [/\b(dispute|overcharged|refund|chargeback)\b/i, "billing dispute"],
-    [/\b(complaint about|report (a |the )?teacher|fire (a |the )?teacher)\b/i, "staff complaint"],
-  ];
-  for (const [re, label] of heuristics) {
+/**
+ * Deterministic hard blocks for unambiguous sensitive situations.
+ * Everything else is judged by the model using the operator's topic list.
+ */
+const HARD_BLOCKS: [RegExp, string][] = [
+  [/\b(abuse|abused|neglect|molest\w*|inappropriate(ly)? touch\w*)\b/i, "a safety concern"],
+  [/\b(custody|restraining order|court order|protective order)\b/i, "custody or legal orders"],
+  [/\b(lawsuit|sue\b|suing|attorney|lawyer|legal action)\b/i, "legal matters"],
+  [/\b(dispute|overcharged|chargeback)\b/i, "a billing dispute"],
+  [/\b(complaint|concern|issue|problem|report)\b.{0,40}\b(teacher|staff|caregiver|aide)\b/i, "a staff concern"],
+  [/\b(my|our)\s+(child|son|daughter|kid|toddler|baby|infant)\b.{0,60}\b(injur\w*|hurt|bleeding|bruise\w*|bitten|bit by|got bit|scrape\w*|fell)\b/i, "an incident involving your child"],
+  [/\b(injur\w*|hurt|bleeding|bruise\w*|bitten|scrape\w*|fell)\b.{0,60}\b(my|our)\s+(child|son|daughter|kid|toddler|baby|infant)\b/i, "an incident involving your child"],
+  [/\bwhat happened\b.{0,40}\b(my|our|his|her)\b/i, "an incident involving your child"],
+];
+
+function detectHardBlock(question: string): string | null {
+  for (const [re, label] of HARD_BLOCKS) {
     if (re.test(question)) return label;
   }
   return null;
+}
+
+function escalationCopy(
+  topic: string,
+  director: { name: string; phone: string; email: string }
+): string {
+  return `This sounds like ${topic}, and that deserves a real person rather than an automated answer. ${director.name} can help directly at ${director.phone} or ${director.email}, or tap "Message the director" below and we'll follow up.`;
 }
 
 function verifyCitations(
@@ -91,40 +97,49 @@ export async function askQuestion(question: string): Promise<AskResult> {
   }
 
   const settings = await getSettings();
-  const sensitive = detectSensitive(trimmed, settings.sensitiveTopics);
 
-  if (sensitive) {
+  const escalateWith = async (topic: string): Promise<AskResult> => {
     const log: QuestionLog = {
       id: randomUUID(),
       question: trimmed,
       askedAt: new Date().toISOString(),
       outcome: "escalation",
-      topic: sensitive,
-      escalationReason: `This touches on "${sensitive}", which a staff member should handle personally.`,
+      topic,
+      escalationReason: `Flagged as ${topic}; a staff member should respond personally.`,
       resolved: false,
     };
     await addQuestion(log);
     return {
       outcome: "escalation",
-      answer: `That's something ${settings.director.name} or another staff member should help with directly — I don't answer questions about ${sensitive} on my own. You can reach the director at ${settings.director.phone} or ${settings.director.email}, or tap "Message the director" below.`,
+      answer: escalationCopy(topic, settings.director),
       citedEntries: [],
       questionId: log.id,
       escalationReason: log.escalationReason,
       director: settings.director,
     };
-  }
+  };
+
+  const hardBlock = detectHardBlock(trimmed);
+  if (hardBlock) return escalateWith(hardBlock);
 
   const entries = await getPublishedEntries();
+  // Center is in Albuquerque; resolve "today"/"tomorrow" in local time.
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "America/Denver",
   });
 
   let llm;
   try {
-    llm = await generateGroundedAnswer(trimmed, entries, today);
+    llm = await generateGroundedAnswer(
+      trimmed,
+      entries,
+      today,
+      settings.sensitiveTopics
+    );
   } catch (err) {
     console.error("Gemini generateGroundedAnswer failed:", err);
     // Fail closed if the model is unavailable
@@ -145,6 +160,13 @@ export async function askQuestion(question: string): Promise<AskResult> {
       questionId: log.id,
       director: settings.director,
     };
+  }
+
+  if (llm.escalate) {
+    const topic = (llm.escalationTopic || "").trim();
+    return escalateWith(
+      topic ? `a question about ${topic.toLowerCase()}` : "a sensitive question"
+    );
   }
 
   const cited = verifyCitations(llm.citedEntryIds ?? [], entries);

@@ -6,8 +6,21 @@
 
 type Outcome = "answered" | "gap" | "escalation";
 
-const cases: { q: string; expect: Outcome }[] = [
-  { q: "Are you open on Veterans Day?", expect: "answered" },
+const cases: {
+  q: string;
+  expect: Outcome | Outcome[];
+  /** Optional regex the answer text must match (e.g. yes/no polarity). */
+  answerMatches?: RegExp;
+}[] = [
+  // Yes/no polarity
+  { q: "Are you open on Veterans Day?", expect: "answered", answerMatches: /^No\b/ },
+  { q: "Are you closed on Veterans Day?", expect: "answered", answerMatches: /^Yes\b/ },
+  { q: "Are you open on Columbus Day?", expect: "answered", answerMatches: /^Yes\b/ },
+  // False-positive guards for the sensitive gate
+  { q: "Is the registration fee refundable?", expect: "answered", answerMatches: /non-?refundable/i },
+  { q: "My car broke down, I'll be late for pickup, what happens?", expect: "answered", answerMatches: /\$2/ },
+  { q: "My toddler had a potty accident, do you have spare clothes?", expect: ["gap", "answered"] },
+  { q: "Are vaccines required to enroll?", expect: "answered" },
   { q: "What is the tuition for infants?", expect: "answered" },
   { q: "My child has a fever of 101, can they come in today?", expect: "answered" },
   {
@@ -31,6 +44,8 @@ const cases: { q: string; expect: Outcome }[] = [
     q: "I have a complaint about a teacher in the toddler room.",
     expect: "escalation",
   },
+  { q: "My daughter came home with a bruise on her arm. What happened?", expect: "escalation" },
+  { q: "Can you give my son his antibiotics at lunch?", expect: "escalation" },
 ];
 
 async function main() {
@@ -48,12 +63,18 @@ async function main() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
-      if (data.outcome === c.expect) {
+      const want = Array.isArray(c.expect) ? c.expect : [c.expect];
+      const outcomeOk = want.includes(data.outcome);
+      const textOk = !c.answerMatches || c.answerMatches.test(data.answer ?? "");
+      if (outcomeOk && textOk) {
         console.log(`OK (${data.outcome})`);
         pass++;
       } else {
-        console.log(`FAIL got=${data.outcome} want=${c.expect}`);
-        failures.push(`${c.q} → ${data.outcome} (want ${c.expect})`);
+        const why = !outcomeOk
+          ? `got=${data.outcome} want=${want.join("|")}`
+          : `answer did not match ${c.answerMatches}: "${String(data.answer).slice(0, 80)}"`;
+        console.log(`FAIL ${why}`);
+        failures.push(`${c.q} → ${why}`);
       }
     } catch (err) {
       console.log(`ERROR ${err instanceof Error ? err.message : err}`);

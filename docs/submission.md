@@ -13,7 +13,7 @@ A mobile parent chat and an operator control center for a fictional center (**Su
 
 - **Parent:** ask by text (or voice in Chrome); get handbook-grounded answers with expandable source quotes, confidence, feedback, and a director handoff.
 - **Operator:** dashboard of volume / auto-answer rate / gaps; inbox of questions the system struggled with; **Answer → draft entry → publish → re-test** loop; handbook editor; sensitive-topic settings.
-- **Pipeline:** sensitive-topic gate → Gemini structured JSON over the full published handbook → **server-side citation verification** → fail closed to “not in handbook” when grounding is weak → log every outcome.
+- **Pipeline:** deterministic hard-block for unambiguous safety/legal/dispute cases → Gemini structured JSON over the full published handbook, which also judges gray-zone sensitivity against the operator’s topic list → **server-side citation verification** and yes/no polarity check → fail closed to “not in handbook” when grounding is weak → log every outcome.
 
 Seed data covers the five prompt examples and deliberately leaves gaps (sibling discount, nap blankets, potty training, birthdays) so the improvement loop is demoable.
 
@@ -26,4 +26,4 @@ Seed data covers the five prompt examples and deliberately leaves gaps (sibling 
 - Persist with Redis in production (Upstash wired; in-memory fallback for demos), staff SSO on `/admin`, SMS/brightwheel message channel, eval harness in CI, and per-center multi-tenant handbooks.
 
 ## Eval
-`npm run eval` — 15 golden questions asserting outcome category (answered / gap / escalation), not wording. **Local result: 15/15 passed** (8 answered, 4 gap, 3 escalation).
+`npm run eval` — 23 golden questions asserting outcome category (answered / gap / escalation) plus a few text checks (yes/no polarity, key facts). Includes false-positive guards so “Is the registration fee refundable?” is answered rather than escalated on the word “refund.” **Result: 23/23 passed.**

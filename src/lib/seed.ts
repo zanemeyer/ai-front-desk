@@ -4,21 +4,17 @@ export const CENTER_NAME = "Sunny Hollow Early Learning Center";
 
 export const seedSettings: Settings = {
   centerName: CENTER_NAME,
+  // Describes situations that need a human, not keywords. Used as guidance
+  // for the model's judgment; a short hard-block list lives in ask.ts.
   sensitiveTopics: [
-    "injury",
-    "accident",
-    "abuse",
-    "custody",
-    "restraining order",
-    "billing dispute",
-    "refund",
-    "staff complaint",
-    "teacher complaint",
-    "medication administration",
-    "allergy emergency",
-    "epipen",
-    "lawsuit",
-    "legal",
+    "an injury, incident, or something that happened to a specific child at the center",
+    "suspected abuse or neglect",
+    "custody arrangements, restraining orders, or court orders",
+    "a billing dispute, refund request, or disagreement about a charge",
+    "a complaint about a teacher or staff member",
+    "a request to give a child medication or manage an allergy emergency",
+    "legal threats, lawsuits, or attorneys",
+    "a child's individual medical condition or diagnosis",
   ],
   director: {
     name: "Maya Chen",
