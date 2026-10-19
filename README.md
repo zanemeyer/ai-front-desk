@@ -40,7 +40,7 @@ Both evals run in CI ([.github/workflows/eval.yml](.github/workflows/eval.yml)) 
 2. In parallel: a **sensitivity classifier** (guided by the operator’s list of situations that need a human) and **grounded generation** over the full published, in-effect handbook with the last few turns of conversation.
 3. Classifier says sensitive → **escalate**: staff are notified, the parent is told who was pinged.
 4. Model asks for clarification → **clarify** with tappable options.
-5. Server **verifies citations** (unknown IDs rejected and logged), checks **yes/no polarity**, adds **freshness caveats** for overdue entries. Low confidence or no valid citation → **gap**, fail closed.
+5. Server **verifies citations** (unknown IDs rejected and logged), **verifies the model's verbatim supporting quote** against the cited entry (quote-then-answer: the schema makes the model copy the source sentence before it writes the answer; an unverifiable quote downgrades confidence and is shown to staff), checks **yes/no polarity**, adds **freshness caveats** for overdue entries. Low confidence or no valid citation → **gap**, fail closed.
 6. Every outcome is logged with intent, reason, confidence, rejected citations, and prompt version.
 
 ## Operator loop

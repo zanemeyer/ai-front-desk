@@ -16,7 +16,7 @@ A mobile parent chat (web + SMS webhook) and an operator control center for a fi
 - **Persistence:** Postgres (Neon) so edits and the question log survive cold starts; seed data is versioned, the log is never overwritten.
 
 ## Three design decisions
-1. **Whole-handbook context, not vectors.** At ~15 policies retrieval adds a failure mode without value. Grounding comes from required, server-verified citations; unknown IDs are rejected and surfaced to staff. Swap in retrieval at a few hundred entries.
+1. **Whole-handbook context, not vectors.** At ~15 policies retrieval adds a failure mode without value. Grounding comes from required, server-verified citations and a **quote-then-answer** schema: the model must copy the supporting sentence verbatim *before* writing the answer, and the server checks the quote exists in the cited entry (unverifiable quote → confidence downgraded, shown to staff). Swap in retrieval at a few hundred entries.
 2. **Fail closed, but ask before failing.** A confident wrong answer is worse than a warm escalation; a clarifying question beats both. Low confidence or missing citations become gaps, not invented policy. Yes/no polarity is checked server-side (the first build said “Yes, we are closed on Veterans Day”).
 3. **The inbox authors the handbook.** Unanswered questions, clustered by intent, are the backlog. Answering one publishes an entry and resolves the cluster. Knowledge grows from real parent demand.
 

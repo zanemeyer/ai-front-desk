@@ -64,6 +64,64 @@ export function verifyCitations(
   return { valid, rejected };
 }
 
+// Alphanumerics only: Gemini's structured output mangles en-dashes and curly
+// quotes (often into "\n\n"), so punctuation can't be part of the comparison.
+const normalizeText = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/\\?text(en|em)dash/g, " ") // seen: "6 weeks\textendash12 months"
+    .replace(/[^a-z0-9$%]+/g, " ")
+    .trim();
+
+/** Share of `needle` tokens found in `hay` in order (greedy). */
+function orderedTokenCoverage(needle: string, hay: string): number {
+  const tokens = needle.split(" ").filter(Boolean);
+  if (tokens.length === 0) return 0;
+  let pos = 0;
+  let hit = 0;
+  for (const t of tokens) {
+    const i = hay.indexOf(t, pos);
+    if (i >= 0) {
+      hit++;
+      pos = i + t.length;
+    }
+  }
+  return hit / tokens.length;
+}
+
+/**
+ * The model must quote its source verbatim before answering. Check that the
+ * quote really appears in one of the cited entries. A paraphrased or invented
+ * quote is a signal the model drifted from the handbook, so the caller
+ * downgrades confidence and records it for staff.
+ */
+export function verifyQuote(quote: string, cited: HandbookEntry[]): boolean {
+  // Tolerate elided quotes ("closed on the following holidays: ... Veterans
+  // Day"): every fragment must appear, in order, in one cited entry.
+  const fragments = (quote ?? "")
+    .split(/\.{3}|…/)
+    .map(normalizeText)
+    .filter((f) => f.length >= 8);
+  if (fragments.length === 0) return false;
+  return cited.some((e) => {
+    const hay = normalizeText(`${e.title} ${e.content}`);
+    let pos = 0;
+    let exact = true;
+    for (const f of fragments) {
+      const i = hay.indexOf(f, pos);
+      if (i < 0) {
+        exact = false;
+        break;
+      }
+      pos = i + f.length;
+    }
+    if (exact) return true;
+    // Fallback for cosmetic mangling (dropped/garbled punctuation tokens):
+    // nearly every word must still appear, in order. Invented quotes don't.
+    return orderedTokenCoverage(fragments.join(" "), hay) >= 0.9;
+  });
+}
+
 /** Fix contradictory Yes/No leads (e.g. "Yes, we are closed…"). */
 export function fixYesNoPolarity(question: string, answer: string): string {
   const q = question.toLowerCase();
@@ -303,9 +361,20 @@ export async function askQuestion(
     };
   }
 
-  // 6. Answer
+  // 6. Answer. If the model's verbatim quote isn't actually in a cited entry,
+  //    it was reasoning from memory rather than the handbook: downgrade and
+  //    tell staff, but still answer (the citations themselves are valid).
   const answer = fixYesNoPolarity(trimmed, llm.answer);
   const caveats = freshnessCaveats(cited, now);
+  const quoteOk = verifyQuote(llm.supportingQuote, cited);
+  const confidence: AskResult["confidence"] = quoteOk
+    ? llm.confidence
+    : llm.confidence === "high"
+      ? "medium"
+      : llm.confidence;
+  const reason = quoteOk
+    ? llm.reason
+    : `${llm.reason} [Quote not found verbatim in cited entries: "${(llm.supportingQuote ?? "").slice(0, 240)}"]`;
 
   const log: QuestionLog = {
     id: randomUUID(),
@@ -318,8 +387,8 @@ export async function askQuestion(
     answerPreview: answer.slice(0, 180),
     citedEntryIds: cited.map((e) => e.id),
     rejectedCitationIds: rejected,
-    confidence: llm.confidence,
-    reason: llm.reason,
+    confidence,
+    reason,
     promptVersion: PROMPT_VERSION,
     feedback: null,
   };
@@ -330,7 +399,7 @@ export async function askQuestion(
     answer,
     citedEntries: cited,
     caveats,
-    confidence: llm.confidence,
+    confidence,
     questionId: log.id,
     director: settings.director,
     promptVersion: PROMPT_VERSION,

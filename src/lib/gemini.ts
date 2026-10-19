@@ -7,7 +7,7 @@ const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
  * Bump whenever the answer prompt or schema changes. Stored on every question
  * log row and printed by the eval, so a regression can be traced to a prompt.
  */
-export const PROMPT_VERSION = "answer-v3";
+export const PROMPT_VERSION = "answer-v4";
 export const CLASSIFIER_VERSION = "sensitive-v2";
 
 function client() {
@@ -21,6 +21,9 @@ function client() {
 /* ------------------------------------------------------------------ */
 
 export type LlmAnswer = {
+  /** Verbatim excerpt from a cited entry; generated BEFORE the answer so the
+   *  model commits to the source text first. Verified server-side. */
+  supportingQuote: string;
   answer: string;
   citedEntryIds: string[];
   confidence: "high" | "medium" | "low";
@@ -36,8 +39,9 @@ export type LlmAnswer = {
 const answerSchema = {
   type: Type.OBJECT,
   properties: {
-    answer: { type: Type.STRING },
     citedEntryIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+    supportingQuote: { type: Type.STRING },
+    answer: { type: Type.STRING },
     confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
     needsHuman: { type: Type.BOOLEAN },
     askClarification: { type: Type.BOOLEAN },
@@ -47,9 +51,26 @@ const answerSchema = {
     reason: { type: Type.STRING },
     topic: { type: Type.STRING },
   },
-  required: [
-    "answer",
+  // Order matters: the model writes the citation and the verbatim quote
+  // before it writes the answer, which measurably reduces inversions like
+  // "we are open on Veterans Day" when the entry lists it under closures.
+  propertyOrdering: [
     "citedEntryIds",
+    "supportingQuote",
+    "answer",
+    "confidence",
+    "needsHuman",
+    "askClarification",
+    "clarificationQuestion",
+    "clarificationOptions",
+    "intent",
+    "reason",
+    "topic",
+  ],
+  required: [
+    "citedEntryIds",
+    "supportingQuote",
+    "answer",
     "confidence",
     "needsHuman",
     "askClarification",
@@ -107,7 +128,8 @@ ${convo}
 RULES
 - Only state facts that appear in the handbook. Do not invent policies.
 - Cite the entry IDs you used in citedEntryIds (exact IDs from the handbook).
-- If the question is ambiguous in a way that changes the answer (e.g. "what's the tuition?" when rates differ by age group, or "what's for lunch?" without a day), set askClarification=true, put a short friendly question in clarificationQuestion, and give 2–5 concrete tappable options in clarificationOptions (e.g. ["Infants","Toddlers","Twos","Preschool","Pre-K"]). Leave answer empty in that case. Do NOT ask for clarification if the conversation already resolves it or if one short answer covers it.
+- supportingQuote: copy the exact sentence or fragment from a cited entry that answers the question, character for character (no paraphrase, no ellipsis). Write it BEFORE the answer and make sure the answer agrees with it. If a holiday appears in a "closed on" list, the answer is that we are closed. Empty string only when asking for clarification or when nothing applies.
+- If the question is ambiguous in a way that changes the answer (e.g. "what's the tuition?" when rates differ by age group, or "what's for lunch?" without a day), set askClarification=true, put a short friendly question in clarificationQuestion, and give 2–5 concrete tappable options in clarificationOptions (e.g. ["Infants","Toddlers","Twos","Preschool","Pre-K"]). Leave answer empty in that case. Do NOT ask for clarification if the conversation already resolves it, if one short answer covers it, or if the handbook gives one answer for most children (e.g. a daily schedule for toddlers through Pre-K): answer with that and mention the exception in a few words. Ask only when you truly cannot give a useful answer without the detail.
 - If the handbook does not contain enough information, set confidence to "low", needsHuman to true, and explain in reason. Leave answer as a short friendly note that this isn't in the handbook.
 - Prefer confidence "high" when one or more entries clearly answer the question; "medium" if partial; "low" if missing.
 - Keep answer warm, concise (1–3 sentences), and specific to this center. No filler closings like "have a wonderful day."
@@ -132,7 +154,7 @@ ${question}`;
     config: {
       responseMimeType: "application/json",
       responseSchema: answerSchema,
-      temperature: 0.2,
+      temperature: 0,
     },
   });
 
