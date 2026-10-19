@@ -1,7 +1,8 @@
 # Sunny Hollow AI Front Desk — Exercise Notes
 
 **Zane Meyer** · Staff AI Software Engineer, Product · brightwheel  
-**Prototype:** *(paste hosted URL after deploy)* · **Repo:** *(paste GitHub URL)*  
+**Prototype:** https://ai-front-desk-eight-woad.vercel.app  
+**Repo:** https://github.com/zanemeyer/ai-front-desk  
 **Time spent:** ~3 hours
 
 ## Problem
