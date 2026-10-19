@@ -59,7 +59,9 @@ Rules:
 - Cite the entry IDs you used in citedEntryIds (exact IDs from the handbook).
 - If the handbook does not contain enough information, set confidence to "low", needsHuman to true, and explain in reason. Leave answer as a short friendly note that this isn't in the handbook.
 - Prefer confidence "high" when one or more entries clearly answer the question; "medium" if partial; "low" if missing.
-- Keep answer warm, concise (2–5 sentences), and specific to this center.
+- Keep answer warm, concise (1–3 sentences), and specific to this center. No filler closings like "have a wonderful day."
+- For yes/no questions (e.g. "Are you open…?", "Do you offer…?"), start with a clear Yes or No that matches the facts. Never write "Yes, we are closed" or "No, we are open."
+  Example: Q: "Are you open on Veterans Day?" A: "No — we are closed on Veterans Day (November 11, 2026)."
 - Pick a topic category matching the handbook categories when possible.
 
 HANDBOOK:

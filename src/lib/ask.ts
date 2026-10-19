@@ -43,6 +43,47 @@ function verifyCitations(
   return valid;
 }
 
+/** Fix contradictory Yes/No leads (e.g. "Yes, we are closed…"). */
+export function fixYesNoPolarity(question: string, answer: string): string {
+  const q = question.toLowerCase();
+  const asksOpen =
+    /\b(are you open|is (the )?(center|school|daycare) open|will you be open|do you open)\b/.test(
+      q
+    );
+  const asksClosed =
+    /\b(are you closed|is (the )?(center|school|daycare) closed|will you be closed)\b/.test(
+      q
+    );
+  if (!asksOpen && !asksClosed) return answer;
+
+  const lead = answer.match(/^(yes|no)\b/i);
+  if (!lead) return answer;
+
+  const body = answer.slice(lead[0].length);
+  const saysClosed =
+    /\b(closed|not open|won'?t be open|will not be open|are not open)\b/i.test(
+      body
+    );
+  const saysOpen =
+    !saysClosed &&
+    /\b(open|will be open|are open|remain open)\b/i.test(body);
+
+  let fixed = answer;
+  if (asksOpen && saysClosed && /^yes\b/i.test(fixed)) {
+    fixed = fixed.replace(/^yes\b/i, "No");
+  } else if (asksOpen && saysOpen && /^no\b/i.test(fixed)) {
+    fixed = fixed.replace(/^no\b/i, "Yes");
+  } else if (asksClosed && saysClosed && /^no\b/i.test(fixed)) {
+    fixed = fixed.replace(/^no\b/i, "Yes");
+  } else if (asksClosed && saysOpen && /^yes\b/i.test(fixed)) {
+    fixed = fixed.replace(/^yes\b/i, "No");
+  }
+
+  // Soften awkward "No, we will be closed" → keep natural punctuation
+  fixed = fixed.replace(/^(No|Yes),\s+/i, "$1 — ");
+  return fixed;
+}
+
 export async function askQuestion(question: string): Promise<AskResult> {
   const trimmed = question.trim();
   if (!trimmed) {
@@ -135,13 +176,15 @@ export async function askQuestion(question: string): Promise<AskResult> {
     };
   }
 
+  const answer = fixYesNoPolarity(trimmed, llm.answer);
+
   const log: QuestionLog = {
     id: randomUUID(),
     question: trimmed,
     askedAt: new Date().toISOString(),
     outcome: "answered",
     topic: llm.topic,
-    answerPreview: llm.answer.slice(0, 180),
+    answerPreview: answer.slice(0, 180),
     citedEntryIds: cited.map((e) => e.id),
     confidence: llm.confidence,
     feedback: null,
@@ -150,7 +193,7 @@ export async function askQuestion(question: string): Promise<AskResult> {
 
   return {
     outcome: "answered",
-    answer: llm.answer,
+    answer,
     citedEntries: cited,
     confidence: llm.confidence,
     questionId: log.id,
