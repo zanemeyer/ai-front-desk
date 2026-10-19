@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f1e8;
+  --bg-soft: #efe6d6;
+  --ink: #1c2a22;
+  --ink-muted: #5a6b60;
+  --leaf: #2f6b4f;
+  --leaf-deep: #1f4a37;
+  --sun: #e8a54b;
+  --sun-soft: #f3d5a2;
+  --rose: #c45c4a;
+  --rose-soft: #f3d5ce;
+  --card: #fffdf8;
+  --line: #d9cfc0;
+  --shadow: 0 10px 30px rgba(28, 42, 34, 0.08);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-leaf: var(--leaf);
+  --color-leaf-deep: var(--leaf-deep);
+  --color-sun: var(--sun);
+  --color-sun-soft: var(--sun-soft);
+  --color-rose: var(--rose);
+  --color-rose-soft: var(--rose-soft);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #f8e7c8 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #d9ebe0 0%, transparent 50%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseSoft {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.35s ease-out both;
+}
+
+.typing-dot {
+  animation: pulseSoft 1.1s ease-in-out infinite;
+}
