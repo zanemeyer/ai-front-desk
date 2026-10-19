@@ -11,14 +11,16 @@ Operator control center: https://ai-front-desk-eight-woad.vercel.app/admin
 Source: https://github.com/zanemeyer/ai-front-desk
 
 Demo path (~3 min):
-1. Parent: ask “Are you open on Veterans Day?” — check source chip.
-2. Parent: ask “Do you offer a sibling discount?” — see gap / fail-closed.
-3. Admin → Needs attention → open sibling discount → quick answer → draft → publish → Test it.
-4. Parent: re-ask sibling discount — now answered from the new entry.
+1. Parent: “Are you open on Veterans Day?” — note the source chip; expand it and tap “This looks outdated” to see a targeted flag.
+2. Parent: “What’s the tuition?” — one clarifying question with chips; tap Toddlers. Then type “and infants?” to see multi-turn.
+3. Parent: “Can you give my son his antibiotics at lunch?” — escalation; staff are pinged automatically.
+4. Admin → Needs attention: “Sibling discount ×3” with the model’s reason → Answer & add → draft → publish → resolves all 3 → Test it.
+5. Admin → Staff alerts shows the escalation; Handbook shows freshness/effective-date metadata.
+Evals: 26/26 golden questions, 100%/100% precision/recall on the sensitivity gate (both in CI).
 ```
 
 3. Click **Submit Assignment**.
 
-## Optional hardening (if you have 5 more minutes)
-- In Vercel → Storage → create **Upstash Redis** and reconnect env vars so operator edits survive cold starts (currently uses in-memory seeded fallback).
-- Rotate the Gemini API key after the process if it was shared in chat.
+## After submitting
+- Rotate the Gemini API key (it is in Vercel env, GitHub Actions secret, and local `.env.local` only).
+- Persistence is already on (Neon Postgres via Vercel Marketplace, free plan).

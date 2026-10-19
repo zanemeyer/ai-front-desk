@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "NODE_USE_ENV_PROXY=1 next start",
     "lint": "eslint",
-    "eval": "NODE_USE_ENV_PROXY=1 tsx scripts/eval.ts"
+    "eval": "NODE_USE_ENV_PROXY=1 tsx scripts/eval.ts",
+    "eval:sensitive": "NODE_USE_ENV_PROXY=1 tsx scripts/eval-sensitive.ts",
+    "purge:test": "NODE_USE_ENV_PROXY=1 tsx scripts/purge-test-traffic.ts"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
+    "@neondatabase/serverless": "^1.2.0",
     "@upstash/redis": "^1.39.0",
     "next": "16.4.2",
     "react": "19.3.0",

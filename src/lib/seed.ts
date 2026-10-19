@@ -2,6 +2,9 @@ import type { HandbookEntry, QuestionLog, Settings } from "./types";
 
 export const CENTER_NAME = "Sunny Hollow Early Learning Center";
 
+/** Bump to re-seed handbook + settings in persistent stores (question log is kept). */
+export const SEED_VERSION = "2026-10-19.4";
+
 export const seedSettings: Settings = {
   centerName: CENTER_NAME,
   // Describes situations that need a human, not keywords. Used as guidance
@@ -10,11 +13,11 @@ export const seedSettings: Settings = {
     "an injury, incident, or something that happened to a specific child at the center",
     "suspected abuse or neglect",
     "custody arrangements, restraining orders, or court orders",
-    "a billing dispute, refund request, or disagreement about a charge",
-    "a complaint about a teacher or staff member",
-    "a request to give a child medication or manage an allergy emergency",
+    "a dispute about a specific charge already on the family's account (general questions about fees or whether something is refundable are fine to answer)",
+    "a complaint or concern about a specific teacher or staff member",
+    "asking staff to give a child medication or handle an allergy emergency (questions about illness policy, fevers, or when a sick child can return are fine to answer)",
     "legal threats, lawsuits, or attorneys",
-    "a child's individual medical condition or diagnosis",
+    "a child's ongoing diagnosis, disability, or special-needs plan (not routine sickness)",
   ],
   director: {
     name: "Maya Chen",
@@ -47,6 +50,9 @@ export const seedEntries: HandbookEntry[] = [
     status: "published",
     updatedAt: daysAgo(20),
     updatedBy: "Maya Chen",
+    effectiveFrom: "2026-08-01",
+    effectiveUntil: "2027-07-31",
+    reviewEveryDays: 365,
   },
   {
     id: "tuition-01",
@@ -97,6 +103,8 @@ export const seedEntries: HandbookEntry[] = [
     status: "published",
     updatedAt: daysAgo(2),
     updatedBy: "Maya Chen",
+    // Weekly-changing content: caveat answers once it is older than a week.
+    reviewEveryDays: 7,
   },
   {
     id: "meals-02",
@@ -176,6 +184,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-01",
     question: "Are you open on Veterans Day?",
+    intent: "holiday_hours",
+    channel: "web",
     askedAt: daysAgo(1),
     outcome: "answered",
     topic: "Hours & Closures",
@@ -187,6 +197,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-02",
     question: "What is the tuition for infants?",
+    intent: "tuition_rates",
+    channel: "web",
     askedAt: daysAgo(1),
     outcome: "answered",
     topic: "Tuition & Billing",
@@ -198,6 +210,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-03",
     question: "My child has a fever, can they come in?",
+    intent: "illness_fever_policy",
+    channel: "web",
     askedAt: daysAgo(0),
     outcome: "answered",
     topic: "Health & Illness",
@@ -211,6 +225,8 @@ export const seedQuestions: QuestionLog[] = [
     id: "q-04",
     question:
       "I forgot to pack lunch. Can you provide lunch today and what is it?",
+    intent: "forgot_lunch",
+    channel: "web",
     askedAt: daysAgo(0),
     outcome: "answered",
     topic: "Meals",
@@ -223,6 +239,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-05",
     question: "How can I schedule a tour?",
+    intent: "schedule_tour",
+    channel: "web",
     askedAt: daysAgo(2),
     outcome: "answered",
     topic: "Enrollment & Tours",
@@ -235,6 +253,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-06",
     question: "Do you offer a sibling discount?",
+    intent: "sibling_discount",
+    channel: "web",
     askedAt: daysAgo(0),
     outcome: "gap",
     topic: "Tuition & Billing",
@@ -244,6 +264,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-07",
     question: "Can my toddler bring a blanket from home for nap time?",
+    intent: "nap_comfort_items",
+    channel: "web",
     askedAt: daysAgo(1),
     outcome: "gap",
     topic: "Daily Schedule",
@@ -252,6 +274,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-08",
     question: "What are your potty training requirements for the twos room?",
+    intent: "potty_training_requirements",
+    channel: "web",
     askedAt: daysAgo(2),
     outcome: "gap",
     topic: "Enrollment & Tours",
@@ -260,6 +284,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-09",
     question: "Can we bring cupcakes for my daughter's birthday?",
+    intent: "birthday_treats",
+    channel: "web",
     askedAt: daysAgo(3),
     outcome: "gap",
     topic: "Meals",
@@ -268,6 +294,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-10",
     question: "My child scraped their knee on the playground — what happened?",
+    intent: "child_incident",
+    channel: "web",
     askedAt: daysAgo(1),
     outcome: "escalation",
     topic: "Health & Illness",
@@ -277,6 +305,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-11",
     question: "I want to dispute last month's late fee charge.",
+    intent: "billing_dispute",
+    channel: "web",
     askedAt: daysAgo(4),
     outcome: "escalation",
     topic: "Tuition & Billing",
@@ -286,6 +316,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-12",
     question: "What time do you close on Fridays?",
+    intent: "operating_hours",
+    channel: "web",
     askedAt: daysAgo(3),
     outcome: "answered",
     topic: "Hours & Closures",
@@ -297,6 +329,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-13",
     question: "Do you close when APS has a snow day?",
+    intent: "weather_closures",
+    channel: "web",
     askedAt: daysAgo(5),
     outcome: "answered",
     topic: "Weather",
@@ -308,6 +342,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-14",
     question: "What's for lunch on Wednesday?",
+    intent: "lunch_menu",
+    channel: "web",
     askedAt: daysAgo(2),
     outcome: "answered",
     topic: "Meals",
@@ -319,6 +355,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-15",
     question: "When is nap time?",
+    intent: "daily_schedule",
+    channel: "web",
     askedAt: daysAgo(4),
     outcome: "answered",
     topic: "Daily Schedule",
@@ -330,6 +368,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-16",
     question: "How much is preschool tuition?",
+    intent: "tuition_rates",
+    channel: "web",
     askedAt: daysAgo(6),
     outcome: "answered",
     topic: "Tuition & Billing",
@@ -341,6 +381,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-17",
     question: "Can my uncle pick up my child today?",
+    intent: "authorized_pickup",
+    channel: "web",
     askedAt: daysAgo(3),
     outcome: "answered",
     topic: "Drop-off & Pickup",
@@ -354,6 +396,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-18",
     question: "Are you open on Columbus Day?",
+    intent: "holiday_hours",
+    channel: "web",
     askedAt: daysAgo(7),
     outcome: "answered",
     topic: "Hours & Closures",
@@ -365,6 +409,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-19",
     question: "What documents do I need before the first day?",
+    intent: "enrollment_documents",
+    channel: "web",
     askedAt: daysAgo(5),
     outcome: "answered",
     topic: "Enrollment & Tours",
@@ -377,6 +423,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-20",
     question: "Is there a late pickup fee?",
+    intent: "late_pickup_fee",
+    channel: "web",
     askedAt: daysAgo(6),
     outcome: "answered",
     topic: "Hours & Closures",
@@ -388,6 +436,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-21",
     question: "My child has pink eye — when can they come back?",
+    intent: "illness_return_criteria",
+    channel: "web",
     askedAt: daysAgo(2),
     outcome: "answered",
     topic: "Health & Illness",
@@ -399,6 +449,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-22",
     question: "I have a complaint about a teacher in the toddler room.",
+    intent: "staff_complaint",
+    channel: "web",
     askedAt: daysAgo(1),
     outcome: "escalation",
     topic: "Enrollment & Tours",
@@ -408,6 +460,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-23",
     question: "What time should I drop off in the morning?",
+    intent: "dropoff_window",
+    channel: "web",
     askedAt: daysAgo(4),
     outcome: "answered",
     topic: "Drop-off & Pickup",
@@ -419,6 +473,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-24",
     question: "Do you provide snacks or just lunch?",
+    intent: "meals_provided",
+    channel: "web",
     askedAt: daysAgo(5),
     outcome: "answered",
     topic: "Meals",
@@ -430,6 +486,8 @@ export const seedQuestions: QuestionLog[] = [
   {
     id: "q-25",
     question: "How much is the annual registration fee?",
+    intent: "registration_fee",
+    channel: "web",
     askedAt: daysAgo(7),
     outcome: "answered",
     topic: "Tuition & Billing",
@@ -437,5 +495,27 @@ export const seedQuestions: QuestionLog[] = [
     citedEntryIds: ["tuition-02"],
     confidence: "high",
     feedback: "up",
+  },
+  {
+    id: "q-26",
+    question: "Is there a discount if I enroll both my kids?",
+    intent: "sibling_discount",
+    channel: "sms",
+    askedAt: daysAgo(2),
+    outcome: "gap",
+    topic: "Tuition & Billing",
+    reason: "The handbook lists per-child tuition but says nothing about multi-child or sibling pricing.",
+    resolved: false,
+  },
+  {
+    id: "q-27",
+    question: "sibling rate for infant + preschooler?",
+    intent: "sibling_discount",
+    channel: "sms",
+    askedAt: daysAgo(3),
+    outcome: "gap",
+    topic: "Tuition & Billing",
+    reason: "No sibling or multi-child pricing in the handbook.",
+    resolved: false,
   },
 ];

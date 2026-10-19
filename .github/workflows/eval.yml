@@ -1,0 +1,53 @@
+name: eval
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    # Budget: the whole job, including build, must finish in 10 minutes.
+    timeout-minutes: 10
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: gemini-2.5-flash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit -p .
+      - run: npm run build
+
+      - name: Start server (in-memory store)
+        run: |
+          npm start -- -p 3000 > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/settings > /dev/null && break
+            sleep 1
+          done
+
+      - name: Golden questions (outcomes + facts)
+        env:
+          EVAL_BASE_URL: http://localhost:3000
+          EVAL_TIMEOUT_MS: "30000"
+        run: npm run eval
+
+      - name: Sensitivity gate precision / recall
+        env:
+          MIN_RECALL: "0.9"
+          MIN_PRECISION: "0.8"
+        run: npm run eval:sensitive
+
+      - name: Server log on failure
+        if: failure()
+        run: tail -100 server.log
