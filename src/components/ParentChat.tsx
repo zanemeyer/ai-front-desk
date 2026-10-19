@@ -32,8 +32,25 @@ export default function ParentChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [centerName, setCenterName] = useState("Sunny Hollow");
+  const [director, setDirector] = useState<AskResult["director"] | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s: { centerName?: string; director?: AskResult["director"] }) => {
+        if (cancelled) return;
+        if (s.centerName) setCenterName(s.centerName);
+        if (s.director) setDirector(s.director);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -99,139 +116,182 @@ export default function ParentChat() {
     });
   }
 
+  const suggestionList = (compact: boolean) => (
+    <div className="flex flex-col gap-1.5">
+      {SUGGESTIONS.map((s) => (
+        <button
+          key={s.q}
+          type="button"
+          onClick={() => send(s.q)}
+          disabled={loading}
+          className={`group flex items-center gap-3 rounded-2xl border border-line bg-card text-left text-ink transition hover:border-leaf hover:bg-leaf-soft/40 disabled:opacity-60 ${
+            compact ? "px-3 py-2.5 text-sm" : "px-3.5 py-3 text-[14px]"
+          }`}
+        >
+          <span className="pill pill-neutral shrink-0 group-hover:bg-leaf-soft group-hover:text-leaf-deep">{s.tag}</span>
+          <span className="min-w-0 flex-1 leading-snug">{s.q}</span>
+          <ArrowRight size={14} className="shrink-0 text-ink-faint group-hover:text-leaf" />
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="flex h-dvh flex-col sm:items-center sm:justify-center sm:p-6">
-      <div className="flex h-full w-full max-w-md flex-col overflow-hidden bg-card sm:h-[min(880px,100%)] sm:rounded-[28px] sm:border sm:border-line sm:shadow-[var(--shadow-lg)]">
-        {/* Header */}
-        <header className="flex items-center gap-3 border-b border-line bg-card/90 px-4 py-3 backdrop-blur">
+    <div className="flex h-dvh flex-col">
+      {/* Top bar */}
+      <header className="z-10 border-b border-line bg-card/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 lg:px-8">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-leaf font-display text-sm font-semibold text-white">
             SH
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate font-display text-[17px] font-semibold leading-tight text-ink">
-              Sunny Hollow Front Desk
+              {centerName} <span className="hidden text-ink-muted sm:inline">· Front Desk</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-              <span className="h-1.5 w-1.5 rounded-full bg-leaf" />
-              Answers from our handbook, with sources
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-leaf" />
+              <span className="truncate">Answers from our family handbook, with sources</span>
             </div>
           </div>
-          <Link
-            href="/admin"
-            className="btn btn-ghost btn-sm hidden text-xs sm:inline-flex"
-            title="Operator control center"
-          >
-            Staff
-            <ArrowRight size={14} />
+          <Link href="/admin" className="btn btn-secondary btn-sm text-xs" title="Operator control center">
+            Staff <ArrowRight size={14} />
           </Link>
-        </header>
+        </div>
+      </header>
 
-        {/* Thread */}
-        <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
-          <div className="flex flex-col gap-3">
-            <FrontDeskRow>
-              <Bubble>
-                Hi! I&apos;m the Sunny Hollow front desk. Ask me about hours, tuition, illness, meals, tours, or
-                anything in our family handbook. I&apos;ll show you where each answer comes from.
-              </Bubble>
-            </FrontDeskRow>
-
-            {messages.length === 0 && (
-              <div className="animate-fade-up pl-11">
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-                  Parents often ask
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s.q}
-                      type="button"
-                      onClick={() => send(s.q)}
-                      className="group flex items-center gap-3 rounded-2xl border border-line bg-card px-3 py-2.5 text-left text-sm text-ink transition hover:border-leaf hover:bg-leaf-soft/40"
-                    >
-                      <span className="pill pill-neutral shrink-0 group-hover:bg-leaf-soft group-hover:text-leaf-deep">
-                        {s.tag}
-                      </span>
-                      <span className="min-w-0 flex-1 leading-snug">{s.q}</span>
-                      <ArrowRight size={14} className="shrink-0 text-ink-faint group-hover:text-leaf" />
-                    </button>
-                  ))}
-                </div>
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 lg:grid lg:grid-cols-[320px_1fr] lg:gap-8 lg:px-8 lg:py-8">
+        {/* Side panel (desktop only) */}
+        <aside className="hidden min-h-0 flex-col gap-4 overflow-y-auto lg:flex">
+          <section className="card p-5">
+            <h2 className="font-display text-xl font-semibold leading-tight">How can we help today?</h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-ink-muted">
+              Ask anything you&apos;d normally call the office about. Every answer links to the handbook entry it
+              came from, so you can check it yourself.
+            </p>
+            <ul className="mt-4 space-y-2.5 text-[13px] text-ink">
+              <li className="flex gap-2.5">
+                <CheckIcon size={15} className="mt-0.5 shrink-0 text-leaf" />
+                Specific to {centerName}, never generic advice.
+              </li>
+              <li className="flex gap-2.5">
+                <ShieldIcon size={15} className="mt-0.5 shrink-0 text-leaf" />
+                Sensitive topics go straight to a person, and we&apos;ll tell you who.
+              </li>
+              <li className="flex gap-2.5">
+                <AlertIcon size={15} className="mt-0.5 shrink-0 text-leaf" />
+                If it&apos;s not in the handbook, we say so instead of guessing.
+              </li>
+            </ul>
+          </section>
+          <section>
+            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+              Parents often ask
+            </div>
+            {suggestionList(false)}
+          </section>
+          {director && (
+            <section className="card p-4 text-[13px] text-ink-muted">
+              <div className="font-semibold text-ink">Prefer a person?</div>
+              <div className="mt-1">
+                {director.name}, Director · <a href={`tel:${director.phone}`} className="text-leaf-deep hover:underline">{director.phone}</a>
               </div>
-            )}
+              <a href={`mailto:${director.email}`} className="text-leaf-deep hover:underline">
+                {director.email}
+              </a>
+            </section>
+          )}
+        </aside>
 
-            {messages.map((m, i) =>
-              m.role === "user" ? (
-                <div key={m.id} className="flex justify-end animate-fade-up">
-                  <div className="max-w-[82%] rounded-[20px] rounded-br-md bg-leaf px-4 py-2.5 text-[15px] leading-snug text-white shadow-[var(--shadow-sm)]">
-                    {m.text}
-                  </div>
-                </div>
-              ) : (
-                <FrontDeskRow key={m.id}>
-                  <AssistantBubble
-                    result={m.result}
-                    question={m.question}
-                    isLatest={i === messages.length - 1}
-                    onFeedback={feedback}
-                    onPick={(opt) => send(`${m.question} — ${opt}`, opt)}
-                  />
-                </FrontDeskRow>
-              )
-            )}
-
-            {loading && (
+        {/* Chat column */}
+        <section className="flex min-h-0 flex-1 flex-col bg-card lg:overflow-hidden lg:rounded-[24px] lg:border lg:border-line lg:shadow-[var(--shadow-md)]">
+          <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-6">
+            <div className="mx-auto flex max-w-2xl flex-col gap-3">
               <FrontDeskRow>
                 <Bubble>
-                  <span className="flex items-center gap-2 text-ink-muted">
-                    <span className="typing">
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                    Checking the handbook
-                  </span>
+                  Hi! I&apos;m the {centerName} front desk. Ask me about hours, tuition, illness, meals, tours, or
+                  anything in our family handbook. I&apos;ll show you where each answer comes from.
                 </Bubble>
               </FrontDeskRow>
-            )}
-            <div ref={bottomRef} className="h-1" />
-          </div>
-        </main>
 
-        {/* Composer */}
-        <footer className="border-t border-line bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-          <form
-            className="flex items-center gap-2 rounded-full border border-line-strong bg-card py-1 pl-4 pr-1 transition focus-within:border-leaf focus-within:shadow-[0_0_0_3px_rgba(45,122,88,0.15)]"
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-          >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={messages.length ? "Ask a follow-up…" : "Ask a question…"}
-              autoComplete="off"
-              enterKeyHint="send"
-              className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none placeholder:text-ink-faint"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              aria-label="Send"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf text-white transition hover:bg-leaf-deep disabled:opacity-35"
+              {messages.length === 0 && (
+                <div className="animate-fade-up pl-9 lg:hidden">
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+                    Parents often ask
+                  </div>
+                  {suggestionList(true)}
+                </div>
+              )}
+
+              {messages.map((m, i) =>
+                m.role === "user" ? (
+                  <div key={m.id} className="flex justify-end animate-fade-up">
+                    <div className="max-w-[82%] rounded-[20px] rounded-br-md bg-leaf px-4 py-2.5 text-[15px] leading-snug text-white shadow-[var(--shadow-sm)]">
+                      {m.text}
+                    </div>
+                  </div>
+                ) : (
+                  <FrontDeskRow key={m.id}>
+                    <AssistantBubble
+                      result={m.result}
+                      question={m.question}
+                      isLatest={i === messages.length - 1}
+                      onFeedback={feedback}
+                      onPick={(opt) => send(`${m.question} — ${opt}`, opt)}
+                    />
+                  </FrontDeskRow>
+                )
+              )}
+
+              {loading && (
+                <FrontDeskRow>
+                  <Bubble>
+                    <span className="flex items-center gap-2 text-ink-muted">
+                      <span className="typing">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      Checking the handbook
+                    </span>
+                  </Bubble>
+                </FrontDeskRow>
+              )}
+              <div ref={bottomRef} className="h-1" />
+            </div>
+          </main>
+
+          {/* Composer */}
+          <footer className="border-t border-line bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-6 lg:pb-5 lg:pt-4">
+            <form
+              className="mx-auto flex max-w-2xl items-center gap-2 rounded-full border border-line-strong bg-card py-1 pl-4 pr-1 transition focus-within:border-leaf focus-within:shadow-[0_0_0_3px_rgba(45,122,88,0.15)]"
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
+              }}
             >
-              <SendIcon size={16} strokeWidth={2.5} />
-            </button>
-          </form>
-          <div className="mt-2 flex items-center justify-between px-2 text-[11px] text-ink-faint">
-            <span>Sensitive questions go straight to a person.</span>
-            <Link href="/admin" className="underline-offset-2 hover:text-ink sm:hidden">
-              Staff view
-            </Link>
-          </div>
-        </footer>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={messages.length ? "Ask a follow-up…" : "Ask a question…"}
+                autoComplete="off"
+                enterKeyHint="send"
+                className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none placeholder:text-ink-faint"
+              />
+              <button
+                type="submit"
+                disabled={loading || !input.trim()}
+                aria-label="Send"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf text-white transition hover:bg-leaf-deep disabled:opacity-35"
+              >
+                <SendIcon size={16} strokeWidth={2.5} />
+              </button>
+            </form>
+            <div className="mx-auto mt-2 max-w-2xl px-2 text-[11px] text-ink-faint lg:hidden">
+              Sensitive questions go straight to a person.
+            </div>
+          </footer>
+        </section>
       </div>
     </div>
   );
@@ -245,7 +305,7 @@ function FrontDeskRow({ children }: { children: React.ReactNode }) {
       <div className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-leaf-soft text-[10px] font-bold text-leaf-deep">
         SH
       </div>
-      <div className="min-w-0 max-w-[88%] flex-1">{children}</div>
+      <div className="min-w-0 max-w-[88%] flex-1 lg:max-w-[80%]">{children}</div>
     </div>
   );
 }
