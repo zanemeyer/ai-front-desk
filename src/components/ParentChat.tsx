@@ -3,40 +3,40 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { AskResult, ChatTurn, HandbookEntry } from "@/lib/types";
+import {
+  AlertIcon,
+  ArrowRight,
+  CheckIcon,
+  ChevronDown,
+  MailIcon,
+  SendIcon,
+  ShieldIcon,
+  ThumbDown,
+  ThumbUp,
+} from "./icons";
 
 type Message =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "assistant"; result: AskResult; question: string };
 
-const SUGGESTIONS = [
-  "Are you open on Veterans Day?",
-  "What's the tuition?",
-  "My child has a fever, can they come in?",
-  "I forgot to pack lunch. Can you provide lunch today and what is it?",
-  "How can I schedule a tour?",
-  "Do you offer a sibling discount?",
+const SUGGESTIONS: { q: string; tag: string }[] = [
+  { q: "Are you open on Veterans Day?", tag: "Hours" },
+  { q: "What's the tuition?", tag: "Tuition" },
+  { q: "My child has a fever, can they come in?", tag: "Health" },
+  { q: "I forgot to pack lunch. Can you provide lunch today and what is it?", tag: "Meals" },
+  { q: "How can I schedule a tour?", tag: "Tours" },
+  { q: "Do you offer a sibling discount?", tag: "Billing" },
 ];
-
-type SpeechRecognitionLike = {
-  lang: string;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: { results: { [i: number]: { [j: number]: { transcript: string } } } }) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-};
 
 export default function ParentChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [listening, setListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
   /** Last few turns, sent so follow-ups like "what about toddlers?" resolve. */
@@ -49,12 +49,13 @@ export default function ParentChat() {
     return turns.slice(-4);
   }
 
-  async function send(question: string) {
+  /** `display` lets a tapped chip show as "Toddlers" while the server gets the full question. */
+  async function send(question: string, display?: string) {
     const q = question.trim();
     if (!q || loading) return;
     setInput("");
     const history = historyForServer();
-    setMessages((m) => [...m, { id: `u-${Date.now()}`, role: "user", text: q }]);
+    setMessages((m) => [...m, { id: `u-${Date.now()}`, role: "user", text: display ?? q }]);
     setLoading(true);
     try {
       const res = await fetch("/api/ask", {
@@ -85,6 +86,7 @@ export default function ParentChat() {
       ]);
     } finally {
       setLoading(false);
+      inputRef.current?.focus();
     }
   }
 
@@ -97,126 +99,166 @@ export default function ParentChat() {
     });
   }
 
-  function toggleVoice() {
-    const w = window as unknown as {
-      SpeechRecognition?: new () => SpeechRecognitionLike;
-      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-    };
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) {
-      alert("Voice input works in Chrome / Edge.");
-      return;
-    }
-    if (listening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setListening(false);
-      return;
-    }
-    const rec = new SR();
-    rec.lang = "en-US";
-    rec.interimResults = false;
-    rec.onresult = (event) => {
-      setInput(event.results[0][0].transcript);
-      setListening(false);
-    };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
-    recognitionRef.current = rec;
-    setListening(true);
-    rec.start();
-  }
-
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-lg flex-col px-4 pb-6 pt-5">
-      <header className="mb-4 animate-fade-up">
-        <div className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-leaf">Sunny Hollow</div>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">Front Desk</h1>
-        <p className="mt-1 text-sm leading-relaxed text-ink-muted">
-          Ask about hours, tuition, illness, meals, tours, and more. Answers come from our handbook — with
-          sources you can check.
-        </p>
-        <Link href="/admin" className="mt-3 inline-block text-xs font-medium text-leaf underline-offset-2 hover:underline">
-          Operator control center →
-        </Link>
-      </header>
-
-      {messages.length === 0 && (
-        <div className="mb-4 flex flex-wrap gap-2 animate-fade-up">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => send(s)}
-              className="rounded-full border border-line bg-card px-3 py-1.5 text-left text-xs text-ink shadow-sm transition hover:border-leaf hover:text-leaf-deep"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-1 flex-col gap-3">
-        {messages.map((m, i) =>
-          m.role === "user" ? (
-            <div
-              key={m.id}
-              className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-leaf px-4 py-2.5 text-sm text-white shadow-sm animate-fade-up"
-            >
-              {m.text}
-            </div>
-          ) : (
-            <AssistantBubble
-              key={m.id}
-              result={m.result}
-              question={m.question}
-              isLatest={i === messages.length - 1}
-              onFeedback={feedback}
-              onPick={(opt) => send(`${m.question} — ${opt}`)}
-            />
-          )
-        )}
-        {loading && (
-          <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-line bg-card px-4 py-3 text-sm text-ink-muted shadow-sm">
-            <span className="typing-dot">Looking in the handbook…</span>
+    <div className="flex h-dvh flex-col sm:items-center sm:justify-center sm:p-6">
+      <div className="flex h-full w-full max-w-md flex-col overflow-hidden bg-card sm:h-[min(880px,100%)] sm:rounded-[28px] sm:border sm:border-line sm:shadow-[var(--shadow-lg)]">
+        {/* Header */}
+        <header className="flex items-center gap-3 border-b border-line bg-card/90 px-4 py-3 backdrop-blur">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-leaf font-display text-sm font-semibold text-white">
+            SH
           </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-display text-[17px] font-semibold leading-tight text-ink">
+              Sunny Hollow Front Desk
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-leaf" />
+              Answers from our handbook, with sources
+            </div>
+          </div>
+          <Link
+            href="/admin"
+            className="btn btn-ghost btn-sm hidden text-xs sm:inline-flex"
+            title="Operator control center"
+          >
+            Staff
+            <ArrowRight size={14} />
+          </Link>
+        </header>
 
-      <form
-        className="sticky bottom-0 mt-4 flex gap-2 rounded-2xl border border-line bg-card p-2 shadow-[var(--shadow)]"
-        onSubmit={(e) => {
-          e.preventDefault();
-          send(input);
-        }}
-      >
-        <button
-          type="button"
-          onClick={toggleVoice}
-          aria-label="Voice input"
-          className={`rounded-xl px-3 text-sm ${listening ? "bg-rose text-white" : "bg-bg-soft text-ink-muted hover:text-ink"}`}
-        >
-          {listening ? "●" : "🎤"}
-        </button>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={messages.length ? "Ask a follow-up…" : "Ask a question…"}
-          className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-ink-muted/70"
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="rounded-xl bg-leaf px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-        >
-          Send
-        </button>
-      </form>
+        {/* Thread */}
+        <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
+          <div className="flex flex-col gap-3">
+            <FrontDeskRow>
+              <Bubble>
+                Hi! I&apos;m the Sunny Hollow front desk. Ask me about hours, tuition, illness, meals, tours, or
+                anything in our family handbook. I&apos;ll show you where each answer comes from.
+              </Bubble>
+            </FrontDeskRow>
+
+            {messages.length === 0 && (
+              <div className="animate-fade-up pl-11">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+                  Parents often ask
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s.q}
+                      type="button"
+                      onClick={() => send(s.q)}
+                      className="group flex items-center gap-3 rounded-2xl border border-line bg-card px-3 py-2.5 text-left text-sm text-ink transition hover:border-leaf hover:bg-leaf-soft/40"
+                    >
+                      <span className="pill pill-neutral shrink-0 group-hover:bg-leaf-soft group-hover:text-leaf-deep">
+                        {s.tag}
+                      </span>
+                      <span className="min-w-0 flex-1 leading-snug">{s.q}</span>
+                      <ArrowRight size={14} className="shrink-0 text-ink-faint group-hover:text-leaf" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((m, i) =>
+              m.role === "user" ? (
+                <div key={m.id} className="flex justify-end animate-fade-up">
+                  <div className="max-w-[82%] rounded-[20px] rounded-br-md bg-leaf px-4 py-2.5 text-[15px] leading-snug text-white shadow-[var(--shadow-sm)]">
+                    {m.text}
+                  </div>
+                </div>
+              ) : (
+                <FrontDeskRow key={m.id}>
+                  <AssistantBubble
+                    result={m.result}
+                    question={m.question}
+                    isLatest={i === messages.length - 1}
+                    onFeedback={feedback}
+                    onPick={(opt) => send(`${m.question} — ${opt}`, opt)}
+                  />
+                </FrontDeskRow>
+              )
+            )}
+
+            {loading && (
+              <FrontDeskRow>
+                <Bubble>
+                  <span className="flex items-center gap-2 text-ink-muted">
+                    <span className="typing">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    Checking the handbook
+                  </span>
+                </Bubble>
+              </FrontDeskRow>
+            )}
+            <div ref={bottomRef} className="h-1" />
+          </div>
+        </main>
+
+        {/* Composer */}
+        <footer className="border-t border-line bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          <form
+            className="flex items-center gap-2 rounded-full border border-line-strong bg-card py-1 pl-4 pr-1 transition focus-within:border-leaf focus-within:shadow-[0_0_0_3px_rgba(45,122,88,0.15)]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+          >
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={messages.length ? "Ask a follow-up…" : "Ask a question…"}
+              autoComplete="off"
+              enterKeyHint="send"
+              className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none placeholder:text-ink-faint"
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              aria-label="Send"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf text-white transition hover:bg-leaf-deep disabled:opacity-35"
+            >
+              <SendIcon size={16} strokeWidth={2.5} />
+            </button>
+          </form>
+          <div className="mt-2 flex items-center justify-between px-2 text-[11px] text-ink-faint">
+            <span>Sensitive questions go straight to a person.</span>
+            <Link href="/admin" className="underline-offset-2 hover:text-ink sm:hidden">
+              Staff view
+            </Link>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
+
+function FrontDeskRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-end gap-2 animate-fade-up">
+      <div className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-leaf-soft text-[10px] font-bold text-leaf-deep">
+        SH
+      </div>
+      <div className="min-w-0 max-w-[88%] flex-1">{children}</div>
+    </div>
+  );
+}
+
+function Bubble({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`inline-block max-w-full rounded-[20px] rounded-bl-md border border-line bg-bg-soft/50 px-4 py-2.5 text-[15px] leading-snug text-ink ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 function SourceChip({ entry, question }: { entry: HandbookEntry; question: string }) {
   const [open, setOpen] = useState(false);
@@ -231,31 +273,42 @@ function SourceChip({ entry, question }: { entry: HandbookEntry; question: strin
     });
   }
 
-  const updated = new Date(entry.updatedAt);
-  const ageDays = Math.floor((Date.now() - updated.getTime()) / 86_400_000);
+  const [ageDays] = useState(() => Math.floor((Date.now() - new Date(entry.updatedAt).getTime()) / 86_400_000));
 
   return (
-    <div className="rounded-xl border border-line bg-bg-soft/60">
+    <div className="overflow-hidden rounded-xl border border-line bg-card">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm"
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
       >
-        <span className="font-medium text-leaf-deep">{entry.title}</span>
-        <span className="shrink-0 text-xs text-ink-muted">{entry.category}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold text-ink">{entry.title}</span>
+          <span className="block text-[11px] text-ink-muted">
+            {entry.category} · updated {ageDays === 0 ? "today" : `${ageDays}d ago`}
+          </span>
+        </span>
+        <ChevronDown size={16} className={`shrink-0 text-ink-faint transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="border-t border-line px-3 py-2">
-          <p className="text-sm leading-relaxed text-ink-muted">{entry.content}</p>
+        <div className="border-t border-line bg-bg-soft/40 px-3 py-2.5">
+          <p className="text-[13px] leading-relaxed text-ink">{entry.content}</p>
           <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-ink-muted">
-            <span>Updated {ageDays === 0 ? "today" : `${ageDays}d ago`} by {entry.updatedBy}</span>
+            <span>By {entry.updatedBy}</span>
             <button
               type="button"
               disabled={flagged}
               onClick={flagOutdated}
-              className="rounded-md border border-line px-2 py-0.5 text-[11px] hover:border-rose hover:text-rose disabled:opacity-60"
+              className={`btn btn-sm ${flagged ? "btn-ghost" : "btn-secondary"} !text-[11px]`}
             >
-              {flagged ? "Thanks — flagged for the office" : "This looks outdated"}
+              {flagged ? (
+                <>
+                  <CheckIcon size={12} /> Flagged for the office
+                </>
+              ) : (
+                "This looks outdated"
+              )}
             </button>
           </div>
         </div>
@@ -280,26 +333,44 @@ function AssistantBubble({
   const [sent, setSent] = useState<"up" | "down" | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
 
-  const tone =
-    result.outcome === "answered"
-      ? "border-line bg-card"
-      : result.outcome === "escalation"
-        ? "border-rose/30 bg-rose-soft/40"
-        : result.outcome === "clarify"
-          ? "border-leaf/30 bg-leaf/5"
-          : "border-sun/40 bg-sun-soft/35";
-
-  const label = {
-    answered: "From the handbook",
-    gap: "Not in the handbook yet",
-    escalation: result.staffNotified ? "Staff have been notified" : "Connecting you with staff",
-    clarify: "Quick question",
+  const meta = {
+    answered: { label: "From the handbook", pill: "pill-leaf", icon: <CheckIcon size={11} /> },
+    clarify: { label: "Quick question", pill: "pill-neutral", icon: null },
+    gap: { label: "Not in the handbook yet", pill: "pill-sun", icon: <AlertIcon size={11} /> },
+    escalation: {
+      label: result.staffNotified ? "Staff notified" : "Connecting you with staff",
+      pill: "pill-rose",
+      icon: <ShieldIcon size={11} />,
+    },
   }[result.outcome];
 
+  const frame =
+    result.outcome === "escalation"
+      ? "border-rose/30 bg-rose-soft/40"
+      : result.outcome === "gap"
+        ? "border-sun/40 bg-sun-soft/40"
+        : "border-line bg-bg-soft/50";
+
   return (
-    <div className={`max-w-[92%] rounded-2xl rounded-bl-md border px-4 py-3 shadow-sm animate-fade-up ${tone}`}>
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-ink-muted">{label}</div>
-      <p className="text-sm leading-relaxed text-ink">{result.answer}</p>
+    <div className={`rounded-[20px] rounded-bl-md border px-4 py-3 ${frame}`}>
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <span className={`pill ${meta.pill}`}>
+          {meta.icon}
+          {meta.label}
+        </span>
+        {result.outcome === "answered" && result.confidence && (
+          <span className="flex items-center gap-1 text-[11px] text-ink-muted">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                result.confidence === "high" ? "bg-leaf" : result.confidence === "medium" ? "bg-sun" : "bg-rose"
+              }`}
+            />
+            {result.confidence} confidence
+          </span>
+        )}
+      </div>
+
+      <p className="text-[15px] leading-snug text-ink">{result.answer}</p>
 
       {result.outcome === "clarify" && result.clarificationOptions && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -312,10 +383,10 @@ function AssistantBubble({
                 setPicked(opt);
                 onPick(opt);
               }}
-              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+              className={`rounded-full border px-3 py-1.5 text-[13px] font-medium transition ${
                 picked === opt
                   ? "border-leaf bg-leaf text-white"
-                  : "border-leaf/40 bg-card text-leaf-deep hover:border-leaf disabled:opacity-50"
+                  : "border-leaf/40 bg-card text-leaf-deep hover:border-leaf hover:bg-leaf-soft/60 disabled:opacity-50"
               }`}
             >
               {opt}
@@ -325,17 +396,20 @@ function AssistantBubble({
       )}
 
       {result.caveats && result.caveats.length > 0 && (
-        <div className="mt-3 rounded-xl border border-sun/50 bg-sun-soft/50 px-3 py-2 text-xs leading-relaxed text-ink">
-          {result.caveats.map((c) => (
-            <div key={c}>⚠ {c}</div>
-          ))}
+        <div className="mt-3 flex gap-2 rounded-xl border border-sun/50 bg-sun-soft/60 px-3 py-2 text-[13px] leading-snug text-ink">
+          <AlertIcon size={14} className="mt-0.5 shrink-0 text-sun" />
+          <div>
+            {result.caveats.map((c) => (
+              <div key={c}>{c}</div>
+            ))}
+          </div>
         </div>
       )}
 
       {result.citedEntries.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-leaf">
-            Sources{result.confidence ? ` · ${result.confidence} confidence` : ""}
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+            Source{result.citedEntries.length > 1 ? "s" : ""}
           </div>
           {result.citedEntries.map((e) => (
             <SourceChip key={e.id} entry={e} question={question} />
@@ -343,40 +417,44 @@ function AssistantBubble({
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {result.outcome === "answered" && result.questionId && (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                onFeedback(result.questionId, "up");
-                setSent("up");
-              }}
-              className={`rounded-lg border px-2 py-1 text-xs ${sent === "up" ? "border-leaf bg-leaf text-white" : "border-line text-ink-muted"}`}
+      {(result.outcome === "answered" || (result.director && result.outcome !== "clarify")) && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {result.outcome === "answered" && result.questionId && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  onFeedback(result.questionId, "up");
+                  setSent("up");
+                }}
+                aria-pressed={sent === "up"}
+                className={`btn btn-sm ${sent === "up" ? "btn-primary" : "btn-secondary"} !text-xs`}
+              >
+                <ThumbUp size={13} /> Helpful
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onFeedback(result.questionId, "down");
+                  setSent("down");
+                }}
+                aria-pressed={sent === "down"}
+                className={`btn btn-sm !text-xs ${sent === "down" ? "!bg-rose !border-rose text-white" : "btn-secondary"}`}
+              >
+                <ThumbDown size={13} /> Not quite
+              </button>
+            </>
+          )}
+          {result.director && (
+            <a
+              href={`mailto:${result.director.email}?subject=Front%20Desk%20follow-up&body=${encodeURIComponent(`Hi ${result.director.name.split(" ")[0]},\n\nI asked the Front Desk: "${question}"\n\n`)}`}
+              className="btn btn-sm btn-ghost ml-auto !text-xs"
             >
-              Helpful
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onFeedback(result.questionId, "down");
-                setSent("down");
-              }}
-              className={`rounded-lg border px-2 py-1 text-xs ${sent === "down" ? "border-rose bg-rose text-white" : "border-line text-ink-muted"}`}
-            >
-              Not quite
-            </button>
-          </>
-        )}
-        {result.director && result.outcome !== "clarify" && (
-          <a
-            href={`mailto:${result.director.email}?subject=Front%20Desk%20follow-up&body=${encodeURIComponent(`Hi ${result.director.name.split(" ")[0]},\n\nI asked the Front Desk: "${question}"\n\n`)}`}
-            className="rounded-lg border border-leaf/30 bg-leaf/10 px-2 py-1 text-xs font-medium text-leaf-deep"
-          >
-            Message the director
-          </a>
-        )}
-      </div>
+              <MailIcon size={13} /> Message {result.director.name.split(" ")[0]}
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }

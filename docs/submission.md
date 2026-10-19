@@ -9,11 +9,13 @@ Admins answer the same questions all day while anxious parents wait on voicemail
 
 ## What I built, against the brief
 **Parent experience (front desk)** — mobile web chat plus a Twilio SMS webhook.
-- *Ask a question:* text or voice (Web Speech), multi-turn so “what about toddlers?” works after a tuition question.
+
+- *Ask a question:* free text with suggested starters, multi-turn so “what about toddlers?” works after a tuition question.
 - *Center-specific, trustworthy:* every answer cites handbook entries with tap-to-expand source quotes, a confidence level, and a freshness caveat when a weekly-changing entry (lunch menu) is overdue. Parents can flag a source as “this looks outdated.”
 - *Uncertain or sensitive:* ambiguous questions get **one clarifying question with tappable chips**; unknowns fail closed (“I don’t want to guess; I’ve sent this to the office”); sensitive situations (medication, incidents, billing disputes, custody, staff complaints) are caught by hard rules plus a dedicated classifier, **staff are pinged automatically**, and the parent is told who (“I’ve pinged Maya with your message”).
 
 **Operator experience (control center)**
+
 - *Provide or edit the source of truth:* handbook editor with draft/publish, effective-date windows, and review cadence; the sensitive-situation list is a setting, not code.
 - *What’s asked and where it struggled:* hours saved, auto-answer rate, top topics, and a **Needs-attention inbox clustered by intent** (three sibling-discount questions = one card, ×3) showing *why* each failed: model reason, rejected citation IDs, confidence, prompt version, thumbs-down text.
 - *Improve over time:* **Answer → AI drafts a handbook entry → edit → publish → re-test**, resolving every question in the cluster. Edits persist (Postgres) and apply to the next question.
