@@ -1,6 +1,6 @@
 # Sunny Hollow · AI Front Desk
 
-Prototype for brightwheel’s hiring exercise: a grounded AI Front Desk for early education, with a parent chat (web + SMS) and an operator control center whose inbox authors the handbook.
+Applied AI prototype: grounded RAG with citation checks and an operator improvement loop. Early-education parent chat (web + SMS) answers only from a published handbook; unverifiable citations fail closed. Gaps and escalations land in an operator inbox—answering one authors the next handbook entry.
 
 - Parent: https://ai-front-desk-eight-woad.vercel.app
 - Operator: https://ai-front-desk-eight-woad.vercel.app/admin
