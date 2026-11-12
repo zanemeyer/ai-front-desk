@@ -1,6 +1,6 @@
 # Sunny Hollow · AI Front Desk
 
-Applied AI prototype: grounded RAG with citation checks and an operator improvement loop. Early-education parent chat (web + SMS) answers only from a published handbook; unverifiable citations fail closed. Gaps and escalations land in an operator inbox—answering one authors the next handbook entry.
+Parent chat (web + SMS) for a daycare handbook: answers come from published policy, get dropped when a citation can't be verified, and anything unclear goes to staff. Staff answers can become the next handbook entry.
 
 - Parent: https://ai-front-desk-eight-woad.vercel.app
 - Operator: https://ai-front-desk-eight-woad.vercel.app/admin
